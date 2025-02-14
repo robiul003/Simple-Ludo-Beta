@@ -43,23 +43,29 @@
         </div>
     </div>
 
-    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <script>
-        const socket = io('simple-ludo-beta-production.up.railway.app');
+        const socket = io('https://simple-ludo-beta-production.up.railway.app'); // Replace with your Railway URL
         let currentRoom = null;
         let isHost = false;
         let myPlayerId = null;
 
         // UI Elements
-        const playerInput = document.getElementById('playerInput');
-        const mainMenu = document.getElementById('mainMenu');
-        const lobby = document.getElementById('lobby');
-        const gameBoard = document.getElementById('gameBoard');
+        const elements = {
+            mainMenu: document.getElementById('mainMenu'),
+            playerInput: document.getElementById('playerInput'),
+            lobby: document.getElementById('lobby'),
+            gameBoard: document.getElementById('gameBoard'),
+            playersList: document.getElementById('playersList'),
+            dice: document.getElementById('dice'),
+            chatMessages: document.getElementById('chatMessages')
+        };
 
         // Game Functions
         function showPlayerInput(action) {
-            mainMenu.style.display = 'none';
-            playerInput.style.display = 'flex';
+            elements.mainMenu.style.display = 'none';
+            elements.playerInput.style.display = 'flex';
+            elements.playerInput.style.animation = 'fadeIn 0.5s ease';
             document.getElementById('roomId').style.display = action === 'join' ? 'block' : 'none';
         }
 
@@ -89,37 +95,12 @@
         socket.on('roomCreated', (roomId) => {
             currentRoom = roomId;
             document.getElementById('displayRoomId').textContent = roomId;
-            playerInput.style.display = 'none';
-            lobby.style.display = 'flex';
+            elements.playerInput.style.display = 'none';
+            elements.lobby.style.display = 'block';
+            elements.lobby.style.animation = 'slideUp 0.5s ease';
         });
 
-        socket.on('roomUpdate', ({ players, gameState, isHost: hostStatus }) => {
-            isHost = hostStatus;
-            document.getElementById('startBtn').style.display = isHost && gameState === 'waiting' ? 'block' : 'none';
-            document.getElementById('playersList').innerHTML = players
-                .map(p => `<div style="color: ${p.color || '#fff'}">${p.name} ${p.isHost ? '👑' : ''}</div>`)
-                .join('');
-        });
-
-        socket.on('gameStarted', (players) => {
-            lobby.style.display = 'none';
-            gameBoard.style.display = 'block';
-            initializeTokens(players);
-        });
-
-        socket.on('diceRolled', (value) => {
-            document.getElementById('dice').textContent = value;
-        });
-
-        socket.on('gameUpdate', (players) => {
-            updateTokens(players);
-        });
-
-        socket.on('newMessage', ({ message, sender }) => {
-            const chatMessages = document.getElementById('chatMessages');
-            chatMessages.innerHTML += `<div><strong>${sender}:</strong> ${message}</div>`;
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-        });
+        // ... [Keep all existing socket.io listeners from previous answer] ...
 
         // Chat Functionality
         document.getElementById('chatInput').addEventListener('keypress', (e) => {
@@ -133,30 +114,14 @@
             }
         });
 
-        // Game Board Functions
-        function initializeTokens(players) {
-            const container = document.getElementById('tokensContainer');
-            players.forEach(player => {
-                player.pieces.forEach((piece, index) => {
-                    const token = document.createElement('div');
-                    token.className = 'token';
-                    token.style.backgroundColor = player.color;
-                    token.id = `token-${player.id}-${index}`;
-                    container.appendChild(token);
-                });
-            });
-        }
-
-        function updateTokens(players) {
-            players.forEach(player => {
-                player.pieces.forEach((piece, index) => {
-                    const token = document.getElementById(`token-${player.id}-${index}`);
-                    if (token) {
-                        // Update position based on pathIndex
-                        token.style.transform = `translate(${piece.pathIndex * 10}px, 0)`;
-                    }
-                });
-            });
+        // Initialize Game Board
+        function initBoard() {
+            const board = document.getElementById('gameBoard');
+            board.innerHTML = `
+                <div class="board-grid">
+                    ${Array(52).fill().map((_, i) => `<div class="path-cell" data-index="${i}"></div>`).join('')}
+                </div>
+            `;
         }
     </script>
 </body>
