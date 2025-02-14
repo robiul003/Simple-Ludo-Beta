@@ -10,33 +10,28 @@
     <div class="container">
         <h1 class="title">Nagins Games</h1>
         
-        <!-- Main Menu -->
         <div class="menu" id="mainMenu">
             <button class="menu-btn" onclick="showPlayerInput('create')">Create Room</button>
             <button class="menu-btn" onclick="showPlayerInput('join')">Join Room</button>
         </div>
 
-        <!-- Player Input -->
         <div class="player-input" id="playerInput">
             <input type="text" id="playerName" placeholder="Enter your name">
             <input type="text" id="roomId" placeholder="Enter Room ID (for joining)" style="display: none;">
             <button class="menu-btn" onclick="handleRoomAction()">Submit</button>
         </div>
 
-        <!-- Lobby -->
         <div class="lobby" id="lobby">
             <h2>Room ID: <span id="displayRoomId"></span></h2>
             <div id="playersList"></div>
             <button class="menu-btn" id="startBtn" onclick="startGame()" style="display: none;">Start Game</button>
         </div>
 
-        <!-- Game Board -->
         <div class="game-board" id="gameBoard">
             <div class="dice" id="dice" onclick="rollDice()">0</div>
             <div class="tokens-container" id="tokensContainer"></div>
         </div>
 
-        <!-- Chat -->
         <div class="chat-box">
             <div class="chat-messages" id="chatMessages"></div>
             <input type="text" id="chatInput" placeholder="Type message...">
@@ -45,12 +40,11 @@
 
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <script>
-        const socket = io('https://simple-ludo-beta-production.up.railway.app'); // Replace with your Railway URL
+        const socket = io('https://simple-ludo-beta-production.up.railway.app');
         let currentRoom = null;
         let isHost = false;
         let myPlayerId = null;
 
-        // UI Elements
         const elements = {
             mainMenu: document.getElementById('mainMenu'),
             playerInput: document.getElementById('playerInput'),
@@ -61,7 +55,6 @@
             chatMessages: document.getElementById('chatMessages')
         };
 
-        // Game Functions
         function showPlayerInput(action) {
             elements.mainMenu.style.display = 'none';
             elements.playerInput.style.display = 'flex';
@@ -77,7 +70,7 @@
             
             if (roomId) {
                 socket.emit('joinRoom', { roomId, playerName });
-                currentRoom = roomId;
+                currentRoom = roomId.toUpperCase();
             } else {
                 socket.emit('createRoom', playerName);
             }
@@ -91,7 +84,6 @@
             socket.emit('rollDice', currentRoom);
         }
 
-        // Socket Listeners
         socket.on('roomCreated', (roomId) => {
             currentRoom = roomId;
             document.getElementById('displayRoomId').textContent = roomId;
@@ -100,9 +92,37 @@
             elements.lobby.style.animation = 'slideUp 0.5s ease';
         });
 
-        // ... [Keep all existing socket.io listeners from previous answer] ...
+        socket.on('roomUpdate', ({ players, gameState, isHost: hostStatus }) => {
+            isHost = hostStatus;
+            document.getElementById('startBtn').style.display = isHost && gameState === 'waiting' ? 'block' : 'none';
+            elements.playersList.innerHTML = players
+                .map(p => `<div class="player-item" style="color: ${p.color || '#fff'}">${p.name} ${p.isHost ? '👑' : ''}</div>`)
+                .join('');
+        });
 
-        // Chat Functionality
+        socket.on('gameStarted', (players) => {
+            elements.lobby.style.display = 'none';
+            elements.gameBoard.style.display = 'block';
+            initializeTokens(players);
+        });
+
+        socket.on('diceRolled', (value) => {
+            elements.dice.textContent = value;
+        });
+
+        socket.on('gameUpdate', (players) => {
+            updateTokens(players);
+        });
+
+        socket.on('newMessage', ({ message, sender }) => {
+            elements.chatMessages.innerHTML += `<div><strong>${sender}:</strong> ${message}</div>`;
+            elements.chatMessages.scrollTop = elements.chatMessages.scrollHeight;
+        });
+
+        socket.on('error', (message) => {
+            alert(`Error: ${message}`);
+        });
+
         document.getElementById('chatInput').addEventListener('keypress', (e) => {
             if (e.key === 'Enter' && e.target.value.trim()) {
                 socket.emit('chatMessage', {
@@ -114,14 +134,29 @@
             }
         });
 
-        // Initialize Game Board
-        function initBoard() {
-            const board = document.getElementById('gameBoard');
-            board.innerHTML = `
-                <div class="board-grid">
-                    ${Array(52).fill().map((_, i) => `<div class="path-cell" data-index="${i}"></div>`).join('')}
-                </div>
-            `;
+        function initializeTokens(players) {
+            const container = document.getElementById('tokensContainer');
+            container.innerHTML = '';
+            players.forEach(player => {
+                player.pieces.forEach((piece, index) => {
+                    const token = document.createElement('div');
+                    token.className = 'token';
+                    token.style.backgroundColor = player.color;
+                    token.id = `token-${player.id}-${index}`;
+                    container.appendChild(token);
+                });
+            });
+        }
+
+        function updateTokens(players) {
+            players.forEach(player => {
+                player.pieces.forEach((piece, index) => {
+                    const token = document.getElementById(`token-${player.id}-${index}`);
+                    if (token) {
+                        token.style.transform = `translate(${piece.pathIndex * 10}px, 0)`;
+                    }
+                });
+            });
         }
     </script>
 </body>
